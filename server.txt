@@ -1,0 +1,307 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package game;
+
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.StringTokenizer;
+import java.util.Vector;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+/**
+ *
+ * @author pisar
+ */
+public class Game {
+    //counter for number of cards flipped;
+    static int count1=0,count2=0,count3=0,count4=0,count5=0,count6=0,count7=0,count8=0,count9=0,count0=0;
+
+    static Vector<ClientHandler> CHL = new Vector<>();
+
+    // counter for clients
+    static int count = 0;
+    static int winner=-1;
+    public static void main(String[] args) throws IOException {
+        ServerSocket ss;
+        Socket s;
+        DataInputStream din;
+        DataOutputStream dout;
+
+            ss = new ServerSocket(5000);
+            String order=null;
+         //the order will have these 3 things
+         //1  = window  enable / disabel (1/0)
+         //+ "#"
+         //2 = print / dont print (1/0)
+         //+ "#"
+         //3 = print message (print);
+         //4 is not requried
+
+         //+"#"
+         //4 = name
+            String print="NULL";//initial string to all the clients
+
+        while(true){
+        try{
+
+
+
+        s = ss.accept();
+         System.out.println("client request recived..");
+        din=new DataInputStream( s.getInputStream());
+        dout=new DataOutputStream (s.getOutputStream());
+        if(count==0){
+            //when the program starts only client 1 will be acctive at the beginnign
+           // order="1#0#"+ print+"#"+count;
+            order="1#0#"+ print;
+        }else{
+            //order="0#0#"+print+"#"+count;
+            order="0#0#"+print;
+        }
+            System.out.println("creating client handlers ");
+
+
+            // to listen as well as order the client
+        ClientHandler ch = new ClientHandler(s,count,din,dout,order);
+
+
+
+
+        Thread t =new Thread(ch);
+
+
+        System.out.println("adding the client to the client clientListner and writter array ");
+        CHL.add(ch);
+
+
+        t.start();
+
+
+        //increment count for new clinet
+        count++;
+
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+
+    }
+
+    }
+
+}
+
+//as server will be first wirtting on to the client and the
+//afer that ther will we alternate cycle of listening and writing
+//so as the sequence of input and output is defiened there is no need to
+//create seperate theread for reading and writting
+class ClientHandler implements Runnable{
+
+
+    Socket s;
+    final DataInputStream din;
+    final DataOutputStream dout;
+    int  name;
+   // static int  CatdsFliped =0;//counter for number of cards flipped;
+    String order;
+
+
+    ClientHandler (Socket s,int name,DataInputStream din, DataOutputStream dout,String order){
+        this.s=s;
+        this.name=name;
+        this.din=din;
+        this.dout=dout;
+        this.order=order;
+    }
+
+    //job to do while listening the client
+    @Override
+    public void run() {
+
+       String input;
+
+
+       //initilaze window only for the first client
+       if(this.name==0){
+       //the first insturction to the client when it starts
+        try {
+            dout.writeUTF(order);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+       }
+       while(true){
+           try{
+               //the insturution recived form the client
+               /*the format for the instructio recived form the user will be
+               won/or not (1/0)
+               only a single character ;
+               the client need not send its name as we have created a sepeate therad for him
+               and hence we can know the name of the client by this.name
+
+               */
+               input=this.din.readUTF();
+               System.out.println("input from usrer = "+input);
+               int currentClient=-1;
+               int inputInt=Integer.parseInt(input);
+               //itteratin over all the client to get the current client
+               ClientHandler current=null;
+               for(ClientHandler ch : Game.CHL){
+                   if(this.name == ch.name){
+                       current=ch;//objects are pass by reference
+                       currentClient =this.name;//current client will have current client name
+                       break;
+                   }
+               }
+
+
+               switch(currentClient){
+               case 0:
+                   Game.count0++;
+                    break;
+               case 1:
+                   Game.count1++;
+                   break;
+               case 2:
+                   Game.count2++;
+                   break;
+                case 3:
+                    Game.count3++;
+                   break;
+                case 4:
+                    Game.count4++;
+                   break;
+                case 5:
+                    Game.count5++;
+                   break;
+                case 6:
+                    Game.count6++;
+                   break;
+                case 7:
+                    Game.count7++;
+                   break;
+                case 8:
+                    Game.count8++;
+                   break;
+                case 9:
+                    Game.count9++;
+                   break;
+
+           }
+               //if input int is one we have to print the result and disable all the client
+
+            // it will sent whether the client won or not
+            String print=getPrintMessage(inputInt,currentClient);
+            if(inputInt==0){
+                //disable current window
+                // order="0#0#"+print+"#"+currentClient;
+                order="0#0#"+print;
+
+
+                dout.writeUTF(order);
+
+                //the client will recive the input from as order and do the necessary
+
+                //change
+               // current.dout.writeUTF(order);
+                // change
+
+
+                //get the new client
+                int nextClient=(currentClient+1)%Game.count;
+                ClientHandler next=null;
+                //get the next client outputstream and give him order to enable the window
+                for(ClientHandler ch : Game.CHL){
+                   if( nextClient == ch.name){
+                       next=ch;//objects are pass by reference
+                       break;
+                   }
+               }
+
+                //here next will have the next client object
+                //enable next client window
+                //order="1#0#"+print;
+                 order="1#0#"+print;
+                 next.dout.writeUTF(order);
+
+
+
+            }else{
+                //we have the winner
+                //oder every window to write the message and then disabel the window
+                //here last field can be anything as it does not matter
+               // order="0#1#"+print+"#"+10;
+                order="0#1#"+print;
+                for(ClientHandler ch : Game.CHL){
+                   ch.dout.writeUTF(order);
+               }
+
+            }
+
+       }catch(Exception e){
+           e.printStackTrace();
+       }
+
+       }
+
+    }
+
+    //takes two parametres won=1 ===client won
+    //won =0 continue to next client
+    String  getPrintMessage(int won,int client){
+        String temp;
+        int i=0;
+        temp="Winner=";
+        if(won==1){
+            temp+=client+"\n";
+
+
+        }
+             while(i<Game.count){
+               temp+="client"+i;
+               switch(i){
+               case 0:
+                   temp+="="+Game.count0+"\n";
+
+                    break;
+               case 1:
+                    temp+="="+Game.count1+"\n";
+                   break;
+               case 2:
+                    temp+="="+Game.count2+"\n";
+                   break;
+                case 3:
+                     temp+="="+Game.count3+"\n";
+                   break;
+                case 4:
+                     temp+="="+Game.count4+"\n";
+                   break;
+                case 5:
+                     temp+="="+Game.count5+"\n";
+                   break;
+                case 6:
+                    temp+="="+Game.count6+"\n";
+                   break;
+                case 7:
+                     temp+="="+Game.count7+"\n";
+                   break;
+                case 8:
+                     temp+="="+Game.count8+"\n";
+                   break;
+                case 9:
+                     temp+="="+Game.count9+"\n";
+                   break;
+
+           }
+           }
+
+             return temp;
+    }
+
+}
